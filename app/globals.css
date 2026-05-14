@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Force light mode.
+ *
+ * Tailwind v4 defaults its `dark:` variant to `prefers-color-scheme: dark`.
+ * We rebind the variant to a `.dark` class so the existing `dark:*` classes
+ * scattered across components never auto-fire from the user's OS — only when
+ * we explicitly opt-in. We don't add `.dark` anywhere, so the app stays light.
+ * ------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+ * WC26 brand palette (light surface).
+ *
+ * Pulls from the official FIFA World Cup 2026 brand system: a vibrant
+ * magenta/pink primary, a high-energy lime accent (signal / "alpha"),
+ * and an amber for warning / in-flight states. Sky and tangerine fill
+ * out the host-nation triad.
+ * ------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  --surface: #ffffff;
+  --grid: rgba(0, 0, 0, 0.05);
+  --pitch: rgba(0, 0, 0, 0.025);
+
+  --brand-magenta: #ec1163;
+  --brand-magenta-soft: #ff408e;
+  --brand-lime: #00b352;
+  --brand-lime-soft: #5eef9b;
+  --brand-amber: #d98700;
+  --brand-sky: #0094c2;
+  --brand-tangerine: #ff5a1f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand-magenta);
+  --color-brand-soft: var(--brand-magenta-soft);
+  --color-alpha: var(--brand-lime);
+  --color-alpha-soft: var(--brand-lime-soft);
+  --color-warn: var(--brand-amber);
+  --color-sky: var(--brand-sky);
+  --color-tangerine: var(--brand-tangerine);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Pitch-stripe + grid background. The horizontal pitch bands evoke a
+ * football pitch viewed from above; the cross-grid keeps the analytical
+ * dashboard feel. */
+body {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      var(--pitch) 0,
+      var(--pitch) 1px,
+      transparent 1px,
+      transparent 80px
+    ),
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* WC26 marquee gradient used for headers and brand accents. */
+.brand-marquee {
+  background: linear-gradient(
+    100deg,
+    var(--brand-magenta) 0%,
+    var(--brand-tangerine) 38%,
+    var(--brand-amber) 62%,
+    var(--brand-lime) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Glowing alpha pill - used when |p_true - p_market| > 0.05. */
+.alpha-glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--brand-lime) 60%, transparent),
+    0 0 18px color-mix(in srgb, var(--brand-lime) 40%, transparent);
+}
+
+/* Subtle outer-ring focus for branded primary buttons. */
+.brand-ring {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--brand-magenta) 30%, transparent),
+    0 8px 24px -8px color-mix(in srgb, var(--brand-magenta) 60%, transparent);
+}
+
+/* Slim scrollbars inside cards. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 25%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 25%, transparent);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -1,0 +1,64 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Secrets & local env (never commit real keys)
+.env
+.env.*
+!.env*.example
+
+# Local AI / editor notes (omit from GitHub; remove these lines if you want them public)
+CLAUDE.md
+AGENTS.md
+
+# Kaggle API token if you use the CLI (~/.kaggle is outside the repo; this catches a stray copy)
+.kaggle/kaggle.json
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# tooling caches
+.turbo
+.eslintcache
+
+# project: raw Kaggle CSVs (large, distribute via README instructions)
+/data/*
+!/data/.gitkeep
+
+# Python (scripts / one-off tooling)
+.venv/
+venv/
+__pycache__/
+*.pyc

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "football": {
+      "command": "npx",
+      "args": ["-y", "mcp-football-server"],
+      "env": {
+        "RAPIDAPI_KEY": "${RAPIDAPI_KEY}",
+        "RAPIDAPI_HOST": "v3.football.api-sports.io"
+      }
+    },
+    "prediction": {
+      "command": "npx",
+      "args": ["-y", "prediction-mcp"]
+    }
+  }
+}
