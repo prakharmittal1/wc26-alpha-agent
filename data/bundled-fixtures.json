@@ -1,0 +1,46 @@
+{
+  "fixtures": [
+    {
+      "id": "fx-001",
+      "home": "Mexico",
+      "away": "United States",
+      "kickoff_iso": "2026-05-23T01:00:00Z",
+      "competition": "International friendly"
+    },
+    {
+      "id": "fx-002",
+      "home": "Brazil",
+      "away": "Argentina",
+      "kickoff_iso": "2026-05-29T22:30:00Z",
+      "competition": "Superclásico friendly"
+    },
+    {
+      "id": "fx-003",
+      "home": "Germany",
+      "away": "France",
+      "kickoff_iso": "2026-06-04T19:00:00Z",
+      "competition": "Euro tune-up"
+    },
+    {
+      "id": "fx-004",
+      "home": "Japan",
+      "away": "South Korea",
+      "kickoff_iso": "2026-06-07T10:00:00Z",
+      "competition": "AFC friendly"
+    },
+    {
+      "id": "fx-005",
+      "home": "Morocco",
+      "away": "Nigeria",
+      "kickoff_iso": "2026-06-10T20:00:00Z",
+      "competition": "CAF tune-up"
+    },
+    {
+      "id": "fx-006",
+      "home": "Netherlands",
+      "away": "Belgium",
+      "kickoff_iso": "2026-06-12T18:45:00Z",
+      "competition": "International friendly"
+    }
+  ]
+}

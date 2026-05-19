@@ -53,9 +53,12 @@ AGENTS.md
 .turbo
 .eslintcache
 
-# project: raw Kaggle CSVs (large, distribute via README instructions)
-/data/*
-!/data/.gitkeep
+# project: raw Kaggle CSVs (large); keep bundled + processed JSON in git
+/data/*.csv
+/data/results.csv
+!/data/bundled-fixtures.json
+!/data/processed/
+!/data/processed/**
 
 # Python (scripts / one-off tooling)
 .venv/

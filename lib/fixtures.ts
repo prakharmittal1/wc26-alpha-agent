@@ -1,13 +1,15 @@
 /**
- * Hard-coded upcoming-fixture stubs for the dashboard while the football
- * MCP isn't wired into the server-side `/` page (it's a Server Component;
- * MCP spawn lives in the chat route instead).
+ * Fixtures shared by `/` + `/api/chat` prompts + `ProbabilityGauge`.
  *
- * Replace this with a server-side fetch off API-Football once you have a
- * RAPIDAPI_KEY filled - or fetch them via `/api/fixtures` in Phase 5.
+ * Prefer `GET /api/matches` (or `lib/live-fixtures#getCachedDashboardFixtures`)
+ * for rows backed by football-data.org + Gamma Polymarket.
+ *
+ * Bundled JSON / hard-coded stubs when `FOOTBALL_DATA_ORG_TOKEN` is unset.
  */
 
 import type { Wc2026Team } from "@/lib/teams";
+
+export type FixturePriceSource = "polymarket" | "none";
 
 export type Fixture = {
   id: string;
@@ -15,8 +17,26 @@ export type Fixture = {
   away: Wc2026Team;
   kickoff_iso: string;
   competition: string;
-  /** Polymarket-style indicative YES price for the home-win contract. */
+  /** Polymarket YES-implied P(home win) when Gamma matched an active shard. */
   market_home_win: number;
+  /** Gamma-enriched shard vs illustrative/neutral filler. */
+  market_price_source?: FixturePriceSource;
+  polymarket_market_slug?: string | null;
+  is_world_cup?: boolean;
+};
+
+/** Hydration provenance surfaced by `/` + `GET /api/matches`. */
+export type FixtureFeedSource =
+  | "football-data-org+polymarket"
+  | "football-data-org"
+  | "bundled+polymarket"
+  | "bundled"
+  | "fallback"
+  | "fixtures-stubs";
+
+export type FixtureFeedMeta = {
+  source: FixtureFeedSource;
+  detail?: string;
 };
 
 export const UPCOMING_FIXTURES: Fixture[] = [
@@ -27,6 +47,7 @@ export const UPCOMING_FIXTURES: Fixture[] = [
     kickoff_iso: "2026-05-23T01:00:00Z",
     competition: "International friendly",
     market_home_win: 0.46,
+    market_price_source: "none",
   },
   {
     id: "fx-002",
@@ -35,6 +56,7 @@ export const UPCOMING_FIXTURES: Fixture[] = [
     kickoff_iso: "2026-05-29T22:30:00Z",
     competition: "Superclásico friendly",
     market_home_win: 0.52,
+    market_price_source: "none",
   },
   {
     id: "fx-003",
@@ -43,6 +65,7 @@ export const UPCOMING_FIXTURES: Fixture[] = [
     kickoff_iso: "2026-06-04T19:00:00Z",
     competition: "Euro tune-up",
     market_home_win: 0.41,
+    market_price_source: "none",
   },
   {
     id: "fx-004",
@@ -51,6 +74,7 @@ export const UPCOMING_FIXTURES: Fixture[] = [
     kickoff_iso: "2026-06-07T10:00:00Z",
     competition: "AFC friendly",
     market_home_win: 0.55,
+    market_price_source: "none",
   },
   {
     id: "fx-005",
@@ -59,6 +83,7 @@ export const UPCOMING_FIXTURES: Fixture[] = [
     kickoff_iso: "2026-06-10T20:00:00Z",
     competition: "CAF tune-up",
     market_home_win: 0.48,
+    market_price_source: "none",
   },
   {
     id: "fx-006",
@@ -67,6 +92,7 @@ export const UPCOMING_FIXTURES: Fixture[] = [
     kickoff_iso: "2026-06-12T18:45:00Z",
     competition: "International friendly",
     market_home_win: 0.50,
+    market_price_source: "none",
   },
 ];
 

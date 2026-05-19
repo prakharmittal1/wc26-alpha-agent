@@ -1,9 +1,8 @@
 /**
  * Canonical national-team names for WC 2026 discourse.
  *
- * We over-include: any nation likely to be mentioned in WC 2026 chatter,
- * even if qualification is uncertain. The agent can filter by *qualified*
- * teams downstream once API-Football is wired in.
+ * We over-include nations likely to appear in WC 2026 coverage,
+ * even if qualification is still uncertain.
  */
 
 export const WC2026_TEAMS = [
@@ -215,6 +214,9 @@ const RAW_ALIASES: Record<string, Wc2026Team> = {
   // New Zealand
   "all whites": "New Zealand",
   "nzl": "New Zealand",
+
+  // FIFA / Opta spelling variants surfaced by API vendors
+  "china pr": "China",
 };
 
 const CANONICAL_BY_LOWER: Map<string, Wc2026Team> = (() => {
@@ -239,19 +241,3 @@ export function canonicalizeMany(inputs: readonly string[]): Wc2026Team[] {
   }
   return [...out];
 }
-
-/**
- * Default subreddit list for the sentiment script: r/soccer + a handful
- * of high-volume per-team national subreddits.
- */
-export const DEFAULT_SUBREDDITS = [
-  "soccer",
-  "worldcup",
-  "ussoccer",
-  "MexicoFootball",
-  "BrasilFootball",
-  "ArgentinaFootball",
-  "Eng_Football",
-  "Bundesliga",
-  "LaLiga",
-] as const;

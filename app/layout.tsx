@@ -13,12 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WC26 Alpha Agent · USA · Canada · Mexico",
+  title: "World Cup 2026 Match Picks · USA · Canada · Mexico",
   description:
-    "Find mispriced FIFA World Cup 2026 contracts on Polymarket. " +
-    "An autonomous agent compares true probabilities against live markets " +
-    "across the road to the USA / Canada / Mexico tournament.",
-  applicationName: "WC26 Alpha Agent",
+    "Compare our win estimates to Polymarket odds for FIFA World Cup 2026 matches. " +
+    "Spot where the betting market might be wrong.",
+  applicationName: "WC26 Match Picks",
   keywords: [
     "World Cup 2026",
     "FIFA",

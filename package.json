@@ -1,6 +1,7 @@
 {
-  "name": "wc26-alpha-agent",
-  "version": "0.1.0",
+  "name": "wc26-match-picks",
+  "version": "0.2.0",
+  "description": "World Cup 2026 — compare our win estimates to Polymarket odds",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,19 +9,15 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "ingest": "tsx scripts/ingest.ts",
-    "sentiment": "tsx scripts/sentiment.ts",
-    "agent:smoke": "tsx scripts/agent-smoke.ts",
-    "supabase:check": "tsx scripts/supabase-check.ts"
+    "data:build": "tsx scripts/data-build.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.72",
-    "@ai-sdk/mcp": "^1.0.42",
-    "@ai-sdk/react": "^3.0.179",
-    "@supabase/supabase-js": "^2.105.4",
     "ai": "^6.0.177",
-    "fast-xml-parser": "^5.8.0",
     "next": "16.2.6",
+    "ollama-ai-provider-v2": "^3.5.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
@@ -37,6 +34,7 @@
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

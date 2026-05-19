@@ -86,7 +86,7 @@ export function ProbabilityGauge({
           {(clamped * 100).toFixed(0)}%
         </span>
         {label && (
-          <span className="text-[10px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+          <span className="text-center text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
             {label}
           </span>
         )}

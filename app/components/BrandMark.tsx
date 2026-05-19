@@ -55,9 +55,9 @@ export function BrandMark() {
           FIFA World Cup 26
         </span>
         <span className="text-base font-semibold text-zinc-950 dark:text-zinc-50 sm:text-lg">
-          Alpha Agent
+          Match Picks
         </span>
-        <span className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
+        <span className="mt-0.5 flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
           {HOST_NATIONS.map((h) => (
             <span key={h.tag} className="flex items-center gap-0.5">
               <span aria-hidden className="text-sm leading-none">{flagFor(h.team)}</span>
