@@ -13,7 +13,13 @@ const BodySchema = z.object({
   kickoff_iso: z.string().min(8),
   competition: z.string().optional(),
   p_market: z.number().gt(0).lt(1).optional().nullable(),
+  market_draw: z.number().gt(0).lt(1).optional().nullable(),
+  market_away_win: z.number().gt(0).lt(1).optional().nullable(),
   polymarket_market_slug: z.string().optional().nullable(),
+  polymarket_event_slug: z.string().optional().nullable(),
+  venue: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  is_world_cup: z.boolean().optional(),
   include_llm: z.boolean().optional(),
 });
 
@@ -55,7 +61,16 @@ export async function POST(req: Request) {
         kickoff_iso: parsed.data.kickoff_iso,
         competition: parsed.data.competition,
         p_market: parsed.data.p_market ?? undefined,
+        market_draw: parsed.data.market_draw ?? undefined,
+        market_away_win: parsed.data.market_away_win ?? undefined,
+        polymarket_event_slug:
+          parsed.data.polymarket_event_slug ??
+          parsed.data.polymarket_market_slug ??
+          undefined,
         polymarket_market_slug: parsed.data.polymarket_market_slug ?? undefined,
+        venue: parsed.data.venue ?? undefined,
+        city: parsed.data.city ?? undefined,
+        is_world_cup: parsed.data.is_world_cup,
       },
       { includeLlm: parsed.data.include_llm },
     );

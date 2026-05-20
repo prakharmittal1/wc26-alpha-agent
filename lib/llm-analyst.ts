@@ -26,7 +26,7 @@ const InsightSchema = z.object({
     .min(2)
     .max(6)
     .describe(
-      "Reasoning steps: cite Elo, specific RAG results, then adjustment to p_expected.",
+      "Reasoning steps: cite Elo, RAG, match_conditions (altitude/travel), then adjustment to p_expected.",
     ),
   stance: z
     .enum(["agree", "disagree", "cautious"])
@@ -49,7 +49,9 @@ const InsightSchema = z.object({
 
 export { isLlmAnalystConfigured };
 
-function buildPrompt(quant: AnalyzeResult): string {
+type QuantForLlm = Omit<AnalyzeResult, "summary" | "verdict" | "llm" | "llm_skip_reason">;
+
+function buildPrompt(quant: QuantForLlm): string {
   return [
     "You are a World Cup 2026 prediction-market analyst.",
     "Produce p_expected_home_win: your fair probability the HOME team wins.",
@@ -58,16 +60,23 @@ function buildPrompt(quant: AnalyzeResult): string {
     "1. p_model — Elo + head-to-head baseline (anchor, not gospel).",
     "2. historical_context — keyword RAG rows; weight recent H2H and World Cup results heavily.",
     "3. p_market — Polymarket YES price for home win (if null, ignore market comparison).",
+    "4. match_conditions — venue, altitude, heat/humidity, air quality, travel, jet lag; use ONLY facts listed there.",
     "",
     "Rules:",
     "- Output p_expected_home_win in [0.05, 0.95].",
     "- If RAG shows home dominated recent meetings, nudge above p_model; if away dominated, nudge below.",
+    "- At high altitude (e.g. Mexico City ~2,240 m), nudge toward teams better suited per match_conditions; mention in risks.",
+    "- Factor heat/humidity, cooling-break conditions, altitude, air quality, and jet lag when match_conditions notes them.",
     "- Do NOT invent scores not listed in historical_context.",
+    "- Do NOT invent venue facts not in match_conditions.",
     "- stance compares YOUR p_expected_home_win to p_market (not the old elo-only edge).",
     "- Be direct; one sentence per thinking_step.",
     "",
     "historical_context (RAG):",
     JSON.stringify(quant.rag.hits, null, 2),
+    "",
+    "match_conditions (venue / altitude / travel):",
+    JSON.stringify(quant.match_context, null, 2),
     "",
     "Quant baseline (JSON):",
     JSON.stringify(
@@ -77,6 +86,11 @@ function buildPrompt(quant: AnalyzeResult): string {
         p_market: quant.p_market,
         breakdown: quant.breakdown,
         market: quant.market,
+        market_three_way: {
+          home: quant.market.home_win,
+          draw: quant.market.draw,
+          away: quant.market.away_win,
+        },
         data_gaps: quant.data_gaps,
       },
       null,
@@ -86,7 +100,7 @@ function buildPrompt(quant: AnalyzeResult): string {
 }
 
 export async function generateAnalystInsight(
-  quant: AnalyzeResult,
+  quant: QuantForLlm,
 ): Promise<{ insight: LlmInsight | null; skipReason?: string }> {
   const resolved = getResolvedLlm();
   if (!resolved) {

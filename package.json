@@ -10,6 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "data:build": "tsx scripts/data-build.ts",
+    "wc26:venues": "tsx scripts/build-wc26-venues.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

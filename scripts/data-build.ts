@@ -217,6 +217,7 @@ async function main(): Promise<void> {
       away: f.away,
       kickoff_iso: f.kickoff_iso,
       competition: f.competition,
+      ...(f.venue ? { venue: f.venue } : {}),
     })),
   };
   writeFileSync(

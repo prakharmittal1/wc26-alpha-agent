@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "World Cup 2026 Match Picks · USA · Canada · Mexico",
   description:
-    "Compare our win estimates to Polymarket odds for FIFA World Cup 2026 matches. " +
-    "Spot where the betting market might be wrong.",
+    "Compare our World Cup 2026 win estimates to betting odds. " +
+    "See when the market might be too high or too low on a team.",
   applicationName: "WC26 Match Picks",
   keywords: [
     "World Cup 2026",
@@ -24,9 +24,8 @@ export const metadata: Metadata = {
     "Polymarket",
     "soccer",
     "football",
-    "alpha",
-    "prediction market",
-    "Gemini",
+    "betting odds",
+    "win probability",
   ],
 };
 

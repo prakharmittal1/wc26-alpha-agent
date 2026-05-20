@@ -5,7 +5,8 @@
       "home": "Mexico",
       "away": "United States",
       "kickoff_iso": "2026-05-23T01:00:00Z",
-      "competition": "International friendly"
+      "competition": "International friendly",
+      "venue": "Estadio Azteca, Mexico City"
     },
     {
       "id": "fx-002",

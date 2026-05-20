@@ -1,6 +1,6 @@
 /**
- * Hydrates dashboard fixtures: football-data.org (free) + Polymarket Gamma,
- * with bundled JSON fallback when no token is set.
+ * Dashboard fixtures: Polymarket WC games (primary), football-data.org fallback,
+ * bundled JSON when offline.
  */
 
 import "server-only";
@@ -12,6 +12,7 @@ import { unstable_cache } from "next/cache";
 
 import type { FootballFixtureBrief } from "@/lib/football-fixtures";
 import { fetchWcEligibleFixturesFromFootballData } from "@/lib/football-data-org";
+import { fetchPolymarketWcGames } from "@/lib/polymarket-wc-fixtures";
 import {
   type Fixture,
   type FixtureFeedMeta,
@@ -19,11 +20,12 @@ import {
   type FixturePriceSource,
   UPCOMING_FIXTURES,
 } from "@/lib/fixtures";
+import { resolveMatchContext } from "@/lib/match-context";
+import { lookupWc26ScheduledVenue } from "@/lib/wc26-schedule";
 import { quoteHomeMoneylineYes } from "@/lib/polymarket-prices";
 
 const RANGE_DAYS = 120;
-const MAX_POLY_ENRICH = 14;
-const DISPLAY_CAP = 12;
+const DISPLAY_CAP = 24;
 
 export type FixturesBootstrap = FixtureFeedMeta & { fixtures: Fixture[] };
 
@@ -40,6 +42,7 @@ function loadBundledBriefs(): FootballFixtureBrief[] {
         away: string;
         kickoff_iso: string;
         competition: string;
+        venue?: string | null;
       }>;
     };
     return (parsed.fixtures ?? []).map((f, i) => ({
@@ -50,6 +53,7 @@ function loadBundledBriefs(): FootballFixtureBrief[] {
       home_team: f.home as FootballFixtureBrief["home_team"],
       away_team: f.away as FootballFixtureBrief["away_team"],
       competition: f.competition,
+      venue: f.venue ?? null,
     }));
   } catch {
     return UPCOMING_FIXTURES.map((f, i) => ({
@@ -60,19 +64,60 @@ function loadBundledBriefs(): FootballFixtureBrief[] {
       home_team: f.home,
       away_team: f.away,
       competition: f.competition,
+      venue: f.venue ?? null,
     }));
   }
+}
+
+function polyGameToFixture(game: Awaited<ReturnType<typeof fetchPolymarketWcGames>>[number]): Fixture {
+  const competition = "FIFA World Cup";
+  const draft: Fixture = {
+    id: `poly-${game.event_id}`,
+    home: game.home,
+    away: game.away,
+    kickoff_iso: game.kickoff_iso,
+    competition,
+    market_home_win: game.prices.home,
+    market_draw: game.prices.draw,
+    market_away_win: game.prices.away,
+    market_three_way: game.prices,
+    market_price_source: "polymarket",
+    polymarket_event_slug: game.event_slug,
+    polymarket_market_slug: game.event_slug,
+    is_world_cup: true,
+    venue: null,
+  };
+  const scheduled = lookupWc26ScheduledVenue(
+    game.home,
+    game.away,
+    game.kickoff_iso,
+  );
+  if (scheduled) {
+    draft.venue = scheduled.city;
+  } else {
+    const ctx = resolveMatchContext({
+      home: game.home,
+      away: game.away,
+      kickoff_iso: game.kickoff_iso,
+      competition,
+      is_world_cup: true,
+    });
+    draft.venue = ctx.city ?? ctx.venue_label ?? null;
+  }
+  return draft;
 }
 
 async function enrichBriefsWithPolymarket(
   briefs: FootballFixtureBrief[],
 ): Promise<{ fixtures: Fixture[]; hasPolymarket: boolean }> {
-  const slice = briefs.slice(0, MAX_POLY_ENRICH);
   const enriched: Fixture[] = [];
 
-  for (const row of slice) {
+  for (const row of briefs) {
     let priceSrc: FixturePriceSource = "none";
     let homeWin = 0.5;
+    let draw: number | null = null;
+    let awayWin: number | null = null;
+    let threeWay = null;
     let slug: string | null = null;
 
     try {
@@ -84,7 +129,12 @@ async function enrichBriefsWithPolymarket(
       if (quote?.price !== undefined && Number.isFinite(quote.price)) {
         homeWin = quote.price;
         priceSrc = "polymarket";
-        slug = quote.market_slug ?? null;
+        slug = quote.event_slug ?? quote.market_slug ?? null;
+        if (quote.three_way) {
+          draw = quote.three_way.draw;
+          awayWin = quote.three_way.away;
+          threeWay = quote.three_way;
+        }
       }
     } catch {
       homeWin = 0.5;
@@ -97,8 +147,13 @@ async function enrichBriefsWithPolymarket(
       away: row.away_team,
       kickoff_iso: row.kickoff_iso,
       competition: row.competition,
+      venue: row.venue ?? null,
       market_home_win: Number(homeWin.toFixed(4)),
+      market_draw: draw !== null ? Number(draw.toFixed(4)) : null,
+      market_away_win: awayWin !== null ? Number(awayWin.toFixed(4)) : null,
+      market_three_way: threeWay,
       market_price_source: priceSrc,
+      polymarket_event_slug: slug,
       polymarket_market_slug: slug,
       is_world_cup: row.is_world_cup,
     });
@@ -110,58 +165,6 @@ async function enrichBriefsWithPolymarket(
     fixtures: enriched.slice(0, DISPLAY_CAP),
     hasPolymarket,
   };
-}
-
-export async function loadDashboardFixtures(): Promise<FixturesBootstrap> {
-  const stubDetail =
-    "No FOOTBALL_DATA_ORG_TOKEN — showing bundled demo fixtures. Register free at https://www.football-data.org/client/register";
-
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const to = new Date(today.getTime());
-  to.setUTCDate(to.getUTCDate() + RANGE_DAYS);
-
-  let briefs: FootballFixtureBrief[] = [];
-  let backend: "football-data-org" | "bundled" | null = null;
-
-  if (process.env.FOOTBALL_DATA_ORG_TOKEN?.trim()) {
-    backend = "football-data-org";
-    try {
-      briefs = await fetchWcEligibleFixturesFromFootballData(today, to);
-    } catch (err) {
-      return {
-        fixtures: UPCOMING_FIXTURES,
-        source: "fallback",
-        detail: err instanceof Error ? err.message : String(err),
-      };
-    }
-  } else {
-    backend = "bundled";
-    briefs = loadBundledBriefs();
-    if (briefs.length === 0) {
-      return {
-        fixtures: UPCOMING_FIXTURES,
-        source: "fixtures-stubs",
-        detail: stubDetail,
-      };
-    }
-    return finishBootstrap(briefs, "bundled", stubDetail);
-  }
-
-  if (briefs.length === 0) {
-    briefs = loadBundledBriefs();
-    return finishBootstrap(
-      briefs.length > 0 ? briefs : [],
-      "fallback",
-      "football-data.org returned no WC-eligible fixtures in this window — using bundled fixtures.",
-    );
-  }
-
-  return finishBootstrap(
-    briefs,
-    backend === "football-data-org" ? "football-data-org" : "bundled",
-    undefined,
-  );
 }
 
 async function finishBootstrap(
@@ -193,14 +196,81 @@ async function finishBootstrap(
     detail:
       detail ??
       (!hasPolymarket
-        ? "No matching Polymarket home-win shards — gauges show neutral placeholders."
+        ? "No Polymarket prices matched — gauges show neutral placeholders."
         : undefined),
+  };
+}
+
+export async function loadDashboardFixtures(): Promise<FixturesBootstrap> {
+  const stubDetail =
+    "Using demo fixtures — Polymarket or football-data.org unavailable.";
+
+  try {
+    const polyGames = await fetchPolymarketWcGames();
+    if (polyGames.length > 0) {
+      const fixtures = polyGames.slice(0, DISPLAY_CAP).map(polyGameToFixture);
+      return {
+        fixtures,
+        source: "polymarket",
+        detail: `${fixtures.length} World Cup matches from Polymarket (home / draw / away odds).`,
+      };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const fallback = await loadFootballDataOrBundled(stubDetail);
+    return {
+      ...fallback,
+      detail: `Polymarket schedule unavailable (${msg}). ${fallback.detail ?? ""}`.trim(),
+    };
+  }
+
+  return loadFootballDataOrBundled(stubDetail);
+}
+
+async function loadFootballDataOrBundled(stubDetail: string): Promise<FixturesBootstrap> {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const to = new Date(today.getTime());
+  to.setUTCDate(to.getUTCDate() + RANGE_DAYS);
+
+  if (process.env.FOOTBALL_DATA_ORG_TOKEN?.trim()) {
+    try {
+      const briefs = await fetchWcEligibleFixturesFromFootballData(today, to);
+      if (briefs.length > 0) {
+        return finishBootstrap(briefs, "football-data-org", undefined);
+      }
+    } catch (err) {
+      const briefs = loadBundledBriefs();
+      if (briefs.length > 0) {
+        return finishBootstrap(
+          briefs,
+          "bundled",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+      return {
+        fixtures: UPCOMING_FIXTURES,
+        source: "fallback",
+        detail: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  const briefs = loadBundledBriefs();
+  if (briefs.length > 0) {
+    return finishBootstrap(briefs, "bundled", stubDetail);
+  }
+
+  return {
+    fixtures: UPCOMING_FIXTURES,
+    source: "fixtures-stubs",
+    detail: stubDetail,
   };
 }
 
 const cachedDashboardFixtures = unstable_cache(
   async () => loadDashboardFixtures(),
-  ["dashboard-fixtures-lite-v2-wc-rag"],
+  ["dashboard-fixtures-poly-wc-v4"],
   { revalidate: 300 },
 );
 

@@ -26,6 +26,7 @@ type FdoMatch = {
   id: number;
   utcDate?: string | null;
   status?: string | null;
+  venue?: string | null;
   competition?: { name?: string | null; code?: string | null } | null;
   homeTeam?: FdoTeam | null;
   awayTeam?: FdoTeam | null;
@@ -96,6 +97,8 @@ function classifyMatch(
   const isWorldCup =
     options?.forceWorldCup === true || compCode === "WC" || /world cup/i.test(compName);
 
+  const venue = (row.venue ?? "").trim() || null;
+
   return {
     id,
     kickoff_iso: kick.toISOString(),
@@ -105,6 +108,7 @@ function classifyMatch(
     away_team: awayTeam,
     competition: isWorldCup ? `FIFA World Cup` : `${compName}`,
     is_world_cup: isWorldCup,
+    venue,
   };
 }
 

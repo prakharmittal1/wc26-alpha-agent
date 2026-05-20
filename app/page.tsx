@@ -5,12 +5,6 @@ export default async function Home() {
   const bootstrap = await getCachedDashboardFixtures();
 
   return (
-    <Dashboard
-      fixtures={bootstrap.fixtures}
-      fixturesBootstrap={{
-        source: bootstrap.source,
-        detail: bootstrap.detail,
-      }}
-    />
+    <Dashboard fixtures={bootstrap.fixtures} />
   );
 }

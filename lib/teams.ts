@@ -150,6 +150,7 @@ const RAW_ALIASES: Record<string, Wc2026Team> = {
 
   // Iran
   "irn": "Iran",
+  "ir iran": "Iran",
   "islamic republic of iran": "Iran",
   "team melli": "Iran",
 
@@ -196,6 +197,7 @@ const RAW_ALIASES: Record<string, Wc2026Team> = {
   "civ": "Ivory Coast",
 
   // DR Congo
+  "congo dr": "DR Congo",
   "drc": "DR Congo",
   "democratic republic of the congo": "DR Congo",
   "democratic republic of congo": "DR Congo",

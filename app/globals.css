@@ -1,23 +1,7 @@
 @import "tailwindcss";
 
-/* ---------------------------------------------------------------------------
- * Force light mode.
- *
- * Tailwind v4 defaults its `dark:` variant to `prefers-color-scheme: dark`.
- * We rebind the variant to a `.dark` class so the existing `dark:*` classes
- * scattered across components never auto-fire from the user's OS — only when
- * we explicitly opt-in. We don't add `.dark` anywhere, so the app stays light.
- * ------------------------------------------------------------------------- */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---------------------------------------------------------------------------
- * WC26 brand palette (light surface).
- *
- * Pulls from the official FIFA World Cup 2026 brand system: a vibrant
- * magenta/pink primary, a high-energy lime accent (signal / "alpha"),
- * and an amber for warning / in-flight states. Sky and tangerine fill
- * out the host-nation triad.
- * ------------------------------------------------------------------------- */
 :root {
   color-scheme: light;
 
@@ -34,6 +18,21 @@
   --brand-amber: #d98700;
   --brand-sky: #0094c2;
   --brand-tangerine: #ff5a1f;
+
+  --tile-odds-home-bg: color-mix(in srgb, var(--brand-lime) 18%, white);
+  --tile-odds-home-text: #047857;
+  --tile-odds-home-ring: color-mix(in srgb, var(--brand-lime) 45%, transparent);
+  --tile-odds-draw-bg: #fafafa;
+  --tile-odds-draw-text: #52525b;
+  --tile-odds-draw-ring: #e4e4e7;
+  --tile-odds-away-bg: color-mix(in srgb, #ef4444 14%, white);
+  --tile-odds-away-text: #b91c1c;
+  --tile-odds-away-ring: color-mix(in srgb, #ef4444 35%, transparent);
+
+  --poly-pill-home: #16a34a;
+  --poly-pill-home-shadow: #15803d;
+  --poly-pill-away: #ef4444;
+  --poly-pill-away-shadow: #b91c1c;
 }
 
 @theme inline {
@@ -50,9 +49,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Pitch-stripe + grid background. The horizontal pitch bands evoke a
- * football pitch viewed from above; the cross-grid keeps the analytical
- * dashboard feel. */
 body {
   background:
     repeating-linear-gradient(
@@ -69,7 +65,6 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* WC26 marquee gradient used for headers and brand accents. */
 .brand-marquee {
   background: linear-gradient(
     100deg,
@@ -83,21 +78,18 @@ body {
   color: transparent;
 }
 
-/* Glowing alpha pill - used when |p_true - p_market| > 0.05. */
 .alpha-glow {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--brand-lime) 60%, transparent),
     0 0 18px color-mix(in srgb, var(--brand-lime) 40%, transparent);
 }
 
-/* Subtle outer-ring focus for branded primary buttons. */
 .brand-ring {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--brand-magenta) 30%, transparent),
     0 8px 24px -8px color-mix(in srgb, var(--brand-magenta) 60%, transparent);
 }
 
-/* Slim scrollbars inside cards. */
 * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--foreground) 25%, transparent) transparent;

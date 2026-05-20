@@ -12,7 +12,7 @@ npm run dev
 # http://localhost:3000
 ```
 
-Tap a match to see our estimate, market odds, and whether they disagree.
+Tap a match to see our estimate, market odds, match conditions (venue, altitude, travel), and whether they disagree.
 
 ## Optional setup
 
@@ -20,7 +20,9 @@ Copy `.env.local.example` → `.env.local`.
 
 | Feature | Env vars | Notes |
 |--------|----------|--------|
-| Live schedules | `FOOTBALL_DATA_ORG_TOKEN` | Free at [football-data.org](https://www.football-data.org/client/register) |
+| Official schedule | — | [FIFA.com scores & fixtures](https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures) (reference; not scraped) |
+| Match list + odds in app | *(none)* | [Polymarket](https://polymarket.com/sports/fifa-world-cup/games) Gamma API (home / draw / away) |
+| Live schedules (fallback) | `FOOTBALL_DATA_ORG_TOKEN` | Used only if Polymarket returns no games |
 | AI commentary | `GOOGLE_GENERATIVE_AI_API_KEY` or `LLM_PROVIDER=ollama` | Gemini Flash-Lite or local Ollama |
 | Full history | `data/results.csv` + `npm run data:build` | Kaggle international results CSV (gitignored) |
 
@@ -56,7 +58,7 @@ Skip AI on a request: `"include_llm": false` on `POST /api/analyze`.
 
 ### Polymarket odds
 
-No key needed — fetched from Polymarket Gamma when a **home-win** market exists. Many friendlies have no market; gauges show 50% until odds appear.
+No key needed. The match list and **home / draw / away** prices come from Polymarket’s Gamma API (`series_id=11433`, same games as [FIFA World Cup on Polymarket](https://polymarket.com/sports/fifa-world-cup/games)). Our “home win” comparison still uses the home column for edge vs our estimate.
 
 ## API
 
@@ -81,7 +83,8 @@ lib/alpha-engine.ts       Analysis pipeline
 lib/live-fixtures.ts      Schedules + Polymarket enrichment
 lib/elo.ts                Team strength ratings
 lib/rag.ts                Past-match keyword search
-lib/llm-analyst.ts        Optional AI estimate
+lib/match-context.ts      Venue, altitude, travel (static WC26 host cities)
+lib/llm-analyst.ts        Optional AI estimate (uses match context)
 data/processed/           Built ratings & history (committed)
 data/bundled-fixtures.json Demo schedule when no live API token
 ```

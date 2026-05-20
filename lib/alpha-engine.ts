@@ -18,6 +18,35 @@ import { generateAnalystInsight, isLlmAnalystConfigured } from "@/lib/llm-analys
 import { quoteHomeMoneylineYes } from "@/lib/polymarket-prices";
 import { isRagAvailable, searchRagForMatch } from "@/lib/rag";
 import { blendEloWithRag } from "@/lib/rag-form";
+import { resolveMatchContext } from "@/lib/match-context";
+import { buildMismatchVerdict } from "@/lib/mismatch-verdict";
+import type { ThreeWayPrices } from "@/lib/polymarket-gamma";
+
+function buildMarketBlock(
+  slug: string | null,
+  source: AnalyzeResult["market"]["source"],
+  question: string | null,
+  p_market: number | null,
+  threeWay: ThreeWayPrices | null | undefined,
+  input: AnalyzeMatchInput,
+): AnalyzeResult["market"] {
+  return {
+    slug,
+    source,
+    question,
+    home_win: p_market,
+    draw:
+      threeWay?.draw ??
+      (input.market_draw != null && Number.isFinite(input.market_draw)
+        ? input.market_draw
+        : null),
+    away_win:
+      threeWay?.away ??
+      (input.market_away_win != null && Number.isFinite(input.market_away_win)
+        ? input.market_away_win
+        : null),
+  };
+}
 
 function computeMarketEdge(p_expected: number, p_market: number | null) {
   const edge = p_market !== null ? p_expected - p_market : null;
@@ -35,7 +64,7 @@ function computeMarketEdge(p_expected: number, p_market: number | null) {
 }
 
 function formatSummary(
-  result: Omit<AnalyzeResult, "summary" | "llm" | "llm_skip_reason">,
+  result: Omit<AnalyzeResult, "summary" | "llm" | "llm_skip_reason" | "verdict">,
 ): string {
   const { match, p_model, p_expected, p_expected_source, p_market, edge, signal, ev_per_unit, breakdown } =
     result;
@@ -53,6 +82,12 @@ function formatSummary(
   ];
   if (result.data_gaps.length > 0) {
     lines.push(`gaps:         ${result.data_gaps.join("; ")}`);
+  }
+  const mc = result.match_context;
+  if (mc.city) {
+    lines.push(
+      `venue:        ${mc.venue_label ?? mc.city} (${mc.elevation_m ?? "?"}m, ${mc.altitude_band ?? "?"})`,
+    );
   }
   return lines.join("\n");
 }
@@ -84,6 +119,15 @@ export async function analyzeMatch(
   }
 
   const rag = searchRagForMatch(input.home, input.away, 6);
+  const match_context = resolveMatchContext({
+    home: input.home,
+    away: input.away,
+    kickoff_iso: input.kickoff_iso,
+    competition: input.competition,
+    venue: input.venue,
+    city: input.city,
+    is_world_cup: input.is_world_cup,
+  });
   if (!isRagAvailable()) {
     data_gaps.push("No RAG chunks — run `npm run data:build -- --file data/results.csv`");
   }
@@ -94,21 +138,38 @@ export async function analyzeMatch(
   let marketSource: AnalyzeResult["market"]["source"] =
     p_market !== null ? "client" : "none";
   let marketQuestion: string | null = null;
+  let marketThreeWay: ThreeWayPrices | null | undefined;
+
+  if (
+    p_market !== null &&
+    input.market_draw != null &&
+    input.market_away_win != null
+  ) {
+    marketThreeWay = {
+      home: p_market,
+      draw: input.market_draw,
+      away: input.market_away_win,
+    };
+    marketSource = "client";
+  }
 
   try {
-    const quote = await quoteHomeMoneylineYes(input.home, input.away, input.kickoff_iso);
+    const quote = await quoteHomeMoneylineYes(input.home, input.away, input.kickoff_iso, {
+      eventSlug: input.polymarket_event_slug ?? input.polymarket_market_slug,
+    });
     if (quote?.price !== undefined && Number.isFinite(quote.price)) {
       p_market = quote.price;
       marketSource = "polymarket";
-      marketSlug = quote.market_slug ?? marketSlug;
+      marketSlug = quote.event_slug ?? quote.market_slug ?? marketSlug;
       marketQuestion = quote.market_question ?? null;
+      marketThreeWay = quote.three_way ?? marketThreeWay;
     }
   } catch {
     data_gaps.push("Polymarket Gamma lookup failed");
   }
 
   if (p_market === null) {
-    data_gaps.push("No Polymarket home-win YES price found");
+    data_gaps.push("No Polymarket match odds found for this fixture");
   }
 
   let p_expected = p_model;
@@ -126,7 +187,8 @@ export async function analyzeMatch(
   if (!includeLlm) {
     llm_skip_reason = options.includeLlm === false ? "disabled" : "no_api_key";
   } else {
-    const interimBase: Omit<AnalyzeResult, "summary" | "llm" | "llm_skip_reason"> = {
+    const interimBase: Omit<AnalyzeResult, "summary" | "llm" | "llm_skip_reason" | "verdict"> =
+      {
       match: {
         home: input.home,
         away: input.away,
@@ -145,17 +207,21 @@ export async function analyzeMatch(
         h2h_adjustment: Number(h2h_adj.toFixed(4)),
         base_p_home: Number(base_p_home.toFixed(4)),
       },
-      market: {
-        slug: marketSlug,
-        source: marketSource,
-        question: marketQuestion,
-      },
+      market: buildMarketBlock(
+        marketSlug,
+        marketSource,
+        marketQuestion,
+        p_market,
+        marketThreeWay,
+        input,
+      ),
       data_gaps,
+      match_context,
       rag,
       elo_built_at: ratings.built_at,
     };
 
-    const { insight, skipReason } = await generateAnalystInsight(interimBase as AnalyzeResult);
+    const { insight, skipReason } = await generateAnalystInsight(interimBase);
     if (insight) {
       p_expected = insight.p_expected_home_win;
       p_expected_source = "llm";
@@ -170,7 +236,7 @@ export async function analyzeMatch(
 
   p_expected = Number(p_expected.toFixed(4));
 
-  const partial: Omit<AnalyzeResult, "summary" | "llm" | "llm_skip_reason"> = {
+  const partial: Omit<AnalyzeResult, "summary" | "llm" | "llm_skip_reason" | "verdict"> = {
     match: {
       home: input.home,
       away: input.away,
@@ -189,21 +255,30 @@ export async function analyzeMatch(
       h2h_adjustment: Number(h2h_adj.toFixed(4)),
       base_p_home: Number(base_p_home.toFixed(4)),
     },
-    market: {
-      slug: marketSlug,
-      source: marketSource,
-      question: marketQuestion,
-    },
+    market: buildMarketBlock(
+      marketSlug,
+      marketSource,
+      marketQuestion,
+      p_market,
+      marketThreeWay,
+      input,
+    ),
     data_gaps,
+    match_context,
     rag,
     elo_built_at: ratings.built_at,
   };
 
-  return {
+  const summary = formatSummary(partial);
+  const withSummary = {
     ...partial,
-    summary: formatSummary(partial),
+    summary,
     llm,
     ...(llm_skip_reason ? { llm_skip_reason } : {}),
+  };
+  return {
+    ...withSummary,
+    verdict: buildMismatchVerdict(withSummary),
   };
 }
 

@@ -11,4 +11,5 @@ export type FootballFixtureBrief = {
   competition: string;
   /** FIFA World Cup competition from football-data.org */
   is_world_cup?: boolean;
+  venue?: string | null;
 };

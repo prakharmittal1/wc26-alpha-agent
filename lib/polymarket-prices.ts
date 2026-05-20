@@ -1,67 +1,42 @@
 /**
- * Polymarket Gamma public endpoints (no API key) for indicative YES odds on
- * home-win moneyline shards (sport events often expose "Will {team} win on …?").
+ * Polymarket Gamma public endpoints (no API key).
+ * Supports 3-way match odds (home / draw / away) and legacy home-win YES search.
  */
 
+import {
+  type GammaEvent,
+  type ParsedWcGame,
+  type ThreeWayPrices,
+  gammaGetEventBySlug,
+  parseThreeWayFromEvent,
+} from "@/lib/polymarket-gamma";
 import { canonicalizeTeam, type Wc2026Team } from "@/lib/teams";
 
+export type { ThreeWayPrices, ParsedWcGame } from "@/lib/polymarket-gamma";
+
 export type GammaHomeWinQuote = {
-  /** Polymarket YES-implied probability for the home squad winning (excluding draw semantics). */
   price: number;
   market_slug?: string | null;
   market_question?: string | null;
+  three_way?: ThreeWayPrices | null;
+  event_slug?: string | null;
 };
 
-type GammaMarket = {
-  question?: string | null;
-  outcomes?: unknown;
-  outcomePrices?: unknown;
-  slug?: string | null;
-  active?: boolean | null;
-  closed?: boolean | null;
-};
+async function gammaPublicSearch(q: string): Promise<{ events?: GammaEvent[] | null }> {
+  const url = new URL("https://gamma-api.polymarket.com/public-search");
+  url.searchParams.set("q", q);
+  url.searchParams.set("events_status", "active");
+  url.searchParams.set("limit_per_type", "20");
 
-type GammaEvent = {
-  title?: string | null;
-  slug?: string | null;
-  markets?: GammaMarket[] | null;
-};
-
-type GammaPublicSearchResponse = {
-  events?: GammaEvent[] | null;
-};
-
-function parseOutcomePrices(raw: unknown): number[] {
-  if (raw === null || raw === undefined) return [];
-
-  const toNums = (arr: unknown[]): number[] =>
-    arr.map((x) => (typeof x === "string" ? Number(x) : Number(x))).filter(
-      (n) => Number.isFinite(n),
-    );
-
-  try {
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.startsWith("[") || trimmed.startsWith('"[')) {
-        const parsed = JSON.parse(trimmed) as unknown[];
-        return Array.isArray(parsed) ? toNums(parsed) : [];
-      }
-    }
-    if (Array.isArray(raw)) return toNums(raw as unknown[]);
-  } catch {
-    return [];
+  const res = await fetch(url, {
+    headers: { accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const snippet = await res.text().catch(() => "");
+    throw new Error(`gamma public-search ${res.status}: ${snippet.slice(0, 200)}`);
   }
-  return [];
-}
-
-function homeWinnerQuestionMatch(question: string, home: Wc2026Team): boolean {
-  const m = /\bwill\s+(.+?)\s+win\b/i.exec(question.trim());
-  if (!m?.[1]) return false;
-
-  let subjectChunk = m[1].trim();
-  subjectChunk = subjectChunk.replace(/\s+on\b.*$/i, "").trim();
-  const subject = canonicalizeTeam(subjectChunk.replace(/\?$/, "").trim());
-  return subject === home;
+  return (await res.json()) as { events?: GammaEvent[] | null };
 }
 
 function eventCoversSides(title: string, home: Wc2026Team, away: Wc2026Team): boolean {
@@ -90,35 +65,94 @@ function eventCoversSides(title: string, home: Wc2026Team, away: Wc2026Team): bo
     if (team === "Scotland") return /\bscotland\b|sco\b/i.test(lo);
     if (team === "Wales") return /\bwales\b|cymru\b/i.test(lo);
     if (team === "England") return /\bengland\b|three\s+lions\b/i.test(lo);
-
+    if (team === "Iran") return /\biran\b|ir iran\b/i.test(lo);
     return false;
   };
 
   return mentions(home) && mentions(away);
 }
 
-async function gammaPublicSearch(q: string): Promise<GammaPublicSearchResponse> {
-  const url = new URL("https://gamma-api.polymarket.com/public-search");
-  url.searchParams.set("q", q);
-  url.searchParams.set("events_status", "active");
-  url.searchParams.set("limit_per_type", "20");
-
-  const res = await fetch(url, {
-    headers: { accept: "application/json" },
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const snippet = await res.text().catch(() => "");
-    throw new Error(`gamma public-search ${res.status}: ${snippet.slice(0, 200)}`);
-  }
-  return (await res.json()) as GammaPublicSearchResponse;
+/** Lookup 3-way prices for a known Polymarket event slug. */
+export async function quoteThreeWayByEventSlug(
+  eventSlug: string,
+): Promise<(ParsedWcGame & { prices: ThreeWayPrices }) | null> {
+  const ev = await gammaGetEventBySlug(eventSlug);
+  if (!ev) return null;
+  return parseThreeWayFromEvent(ev);
 }
 
 /**
- * Attempt to read the LIVE active market for `{homeTeam} beats {awayTeam}` style
- * three-way decomposition (moneyline shards). Uses the Gamma public search index.
+ * 3-way moneyline (home / draw / away) via public search — matches Polymarket game pages.
  */
+export async function quoteThreeWayMoneyline(
+  homeTeam: Wc2026Team,
+  awayTeam: Wc2026Team,
+  kickoffIso?: string,
+): Promise<(ParsedWcGame & { prices: ThreeWayPrices }) | null> {
+  const day = kickoffIso?.slice(0, 10) ?? "";
+  const queries = Array.from(
+    new Set([
+      `${homeTeam} ${awayTeam}`,
+      `${homeTeam} vs ${awayTeam}`,
+      day ? `${homeTeam} ${awayTeam} ${day}` : "",
+    ].filter(Boolean)),
+  );
+
+  for (const q of queries) {
+    let data: { events?: GammaEvent[] | null };
+    try {
+      data = await gammaPublicSearch(q);
+    } catch {
+      continue;
+    }
+    for (const ev of data.events ?? []) {
+      const title = (ev.title ?? "").trim();
+      if (!eventCoversSides(title, homeTeam, awayTeam)) continue;
+      const parsed = parseThreeWayFromEvent(ev);
+      if (parsed && parsed.home === homeTeam && parsed.away === awayTeam) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Home-win YES price; prefers 3-way shard, falls back to legacy search. */
 export async function quoteHomeMoneylineYes(
+  homeTeam: Wc2026Team,
+  awayTeam: Wc2026Team,
+  kickoffIso: string,
+  options?: { eventSlug?: string | null },
+): Promise<GammaHomeWinQuote | null> {
+  if (options?.eventSlug) {
+    const bySlug = await quoteThreeWayByEventSlug(options.eventSlug);
+    if (bySlug) {
+      return {
+        price: bySlug.prices.home,
+        market_slug: bySlug.event_slug,
+        market_question: bySlug.event_title,
+        three_way: bySlug.prices,
+        event_slug: bySlug.event_slug,
+      };
+    }
+  }
+
+  const three = await quoteThreeWayMoneyline(homeTeam, awayTeam, kickoffIso);
+  if (three) {
+    return {
+      price: three.prices.home,
+      market_slug: three.event_slug,
+      market_question: three.event_title,
+      three_way: three.prices,
+      event_slug: three.event_slug,
+    };
+  }
+
+  return legacyHomeWinYesSearch(homeTeam, awayTeam, kickoffIso);
+}
+
+async function legacyHomeWinYesSearch(
   homeTeam: Wc2026Team,
   awayTeam: Wc2026Team,
   kickoffIso: string,
@@ -130,53 +164,28 @@ export async function quoteHomeMoneylineYes(
       `${awayTeam} vs ${homeTeam}`,
       `${homeTeam} ${awayTeam} soccer`,
       `${homeTeam} ${awayTeam} fifa`,
-      `${homeTeam} beats ${awayTeam}`,
       day ? `${homeTeam} ${awayTeam} ${day}` : `${homeTeam} ${awayTeam}`,
-    ].filter(Boolean)),
+    ]),
   );
 
   for (const q of queries) {
-    let data: GammaPublicSearchResponse;
+    let data: { events?: GammaEvent[] | null };
     try {
       data = await gammaPublicSearch(q);
     } catch {
       continue;
     }
-    const events = data.events ?? [];
-    for (const ev of events) {
+    for (const ev of data.events ?? []) {
       const title = (ev.title ?? "").trim();
       if (!eventCoversSides(title, homeTeam, awayTeam)) continue;
-      const markets = ev.markets ?? [];
-      for (const mk of markets) {
-        if (!mk || mk.closed === true || mk.active === false) continue;
-        const question = String(mk.question ?? "");
-        const outcomesTry = mk.outcomes;
-        let outs: unknown[] | null = null;
-        if (typeof outcomesTry === "string") {
-          try {
-            outs = JSON.parse(outcomesTry) as unknown[];
-          } catch {
-            outs = null;
-          }
-        } else if (Array.isArray(outcomesTry)) {
-          outs = outcomesTry as unknown[];
-        }
-        const isYy =
-          outs &&
-          outs.length === 2 &&
-          typeof outs[0] === "string" &&
-          typeof outs[1] === "string" &&
-          /\byes\b/i.test(outs[0]) &&
-          /\bno\b/i.test(outs[1]);
-        if (!isYy) continue;
-        if (!homeWinnerQuestionMatch(question, homeTeam)) continue;
-        const prices = parseOutcomePrices(mk.outcomePrices);
-        const yesPrice = typeof prices[0] === "number" ? Number(prices[0]) : Number.NaN;
-        if (!Number.isFinite(yesPrice) || yesPrice <= 0 || yesPrice >= 1) continue;
+      const parsed = parseThreeWayFromEvent(ev);
+      if (parsed) {
         return {
-          price: Number(yesPrice.toFixed(4)),
-          market_slug: mk.slug ?? ev.slug ?? null,
-          market_question: question.slice(0, 240),
+          price: parsed.prices.home,
+          market_slug: parsed.event_slug,
+          market_question: parsed.event_title,
+          three_way: parsed.prices,
+          event_slug: parsed.event_slug,
         };
       }
     }

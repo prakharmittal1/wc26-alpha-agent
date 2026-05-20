@@ -1,6 +1,21 @@
 import type { AlphaSignal } from "@/lib/ev";
+import type { MismatchVerdict } from "@/lib/mismatch-verdict";
 import type { RagContext } from "@/lib/rag-types";
 import type { Wc2026Team } from "@/lib/teams";
+
+export type { MismatchVerdict } from "@/lib/mismatch-verdict";
+
+export type MatchContext = {
+  venue_label: string | null;
+  city: string | null;
+  country: "Mexico" | "United States" | "Canada" | null;
+  elevation_m: number | null;
+  altitude_band: "sea_level" | "moderate" | "high" | null;
+  climate: string | null;
+  venue_notes: string[];
+  travel_notes: string[];
+  source: "venue" | "inferred" | "unknown";
+};
 
 export type AnalyzeMatchInput = {
   home: Wc2026Team;
@@ -8,7 +23,13 @@ export type AnalyzeMatchInput = {
   kickoff_iso: string;
   competition?: string;
   p_market?: number | null;
+  market_draw?: number | null;
+  market_away_win?: number | null;
   polymarket_market_slug?: string | null;
+  polymarket_event_slug?: string | null;
+  venue?: string | null;
+  city?: string | null;
+  is_world_cup?: boolean;
 };
 
 export type ExpectedSource = "llm" | "rag_elo_blend" | "elo";
@@ -54,11 +75,17 @@ export type AnalyzeResult = {
     slug: string | null;
     source: "polymarket" | "client" | "none";
     question?: string | null;
+    home_win?: number | null;
+    draw?: number | null;
+    away_win?: number | null;
   };
   data_gaps: string[];
+  match_context: MatchContext;
   rag: RagContext;
   summary: string;
   elo_built_at: string;
   llm: LlmInsight | null;
   llm_skip_reason?: string;
+  /** Plain-language overall mismatch vs Polymarket. */
+  verdict: MismatchVerdict;
 };
