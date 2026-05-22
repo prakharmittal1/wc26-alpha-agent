@@ -1,6 +1,7 @@
 import type { AlphaSignal } from "@/lib/ev";
 import type { MismatchVerdict } from "@/lib/mismatch-verdict";
 import type { RagContext } from "@/lib/rag-types";
+import type { SentimentSnapshot } from "@/lib/sentiment/types";
 import type { Wc2026Team } from "@/lib/teams";
 
 export type { MismatchVerdict } from "@/lib/mismatch-verdict";
@@ -88,4 +89,6 @@ export type AnalyzeResult = {
   llm_skip_reason?: string;
   /** Plain-language overall mismatch vs Polymarket. */
   verdict: MismatchVerdict;
+  /** News headlines about this fixture (when news APIs configured). */
+  sentiment: SentimentSnapshot | null;
 };

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "data:build": "tsx scripts/data-build.ts",
     "wc26:venues": "tsx scripts/build-wc26-venues.ts",
+    "sentiment:ingest": "tsx scripts/sentiment-ingest.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

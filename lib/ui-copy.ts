@@ -1,6 +1,5 @@
-import type { AnalyzeResult, ExpectedSource } from "@/lib/alpha-types";
-import type { AlphaSignal } from "@/lib/ev";
-import type { FixtureFeedSource } from "@/lib/fixtures";
+import type { AnalyzeResult } from "@/lib/alpha-types";
+import type { SentimentSourceId, SentimentTone } from "@/lib/sentiment/types";
 
 const NA = "—";
 
@@ -29,29 +28,6 @@ export function formatGapBadge(gapPp: number | null | undefined): string | null 
   return gapPp >= 0 ? `+${gapPp}%` : `${gapPp}%`;
 }
 
-/** Expected return per $1 staked, in plain dollars. */
-export function formatReturnPerDollar(ev: number | null | undefined): string {
-  if (ev == null || !Number.isFinite(ev)) return NA;
-  const sign = ev >= 0 ? "+" : "";
-  return `${sign}$${ev.toFixed(2)}`;
-}
-
-export function teamWinChanceLabel(team: string): string {
-  return `Chance ${team} wins`;
-}
-
-/** Internal / debug only — not shown in the main UI. */
-export function expectedSourceLabel(source: ExpectedSource): string {
-  switch (source) {
-    case "llm":
-      return "AI + history";
-    case "rag_elo_blend":
-      return "Ratings + history";
-    case "elo":
-      return "Ratings only";
-  }
-}
-
 /** One-line verdict vs betting market. */
 export function marketVerdictLine(
   kind: "underpriced" | "overpriced" | "aligned" | "no_market",
@@ -69,31 +45,6 @@ export function marketVerdictLine(
   }
 }
 
-export function signalLabel(signal: AlphaSignal, team: string): string {
-  switch (signal) {
-    case "ALPHA_YES":
-      return marketVerdictLine("underpriced", team);
-    case "ALPHA_NO":
-      return marketVerdictLine("overpriced", team);
-    default:
-      return marketVerdictLine("aligned", team);
-  }
-}
-
-export function gaugeMarketLabel(
-  source: "polymarket" | "neutral" | "expected" | "market",
-): string {
-  switch (source) {
-    case "polymarket":
-    case "market":
-      return "Market";
-    case "neutral":
-      return "No odds";
-    case "expected":
-      return "Our estimate";
-  }
-}
-
 export function stanceLabel(stance: NonNullable<AnalyzeResult["llm"]>["stance"]): string {
   switch (stance) {
     case "agree":
@@ -102,25 +53,6 @@ export function stanceLabel(stance: NonNullable<AnalyzeResult["llm"]>["stance"])
       return "Odds look fair";
     default:
       return "Hard to call";
-  }
-}
-
-export function fixtureFeedLabel(source: FixtureFeedSource): string {
-  switch (source) {
-    case "polymarket":
-      return "Match list from Polymarket";
-    case "polymarket+football-data-org":
-      return "Matches and live updates";
-    case "football-data-org":
-    case "football-data-org+polymarket":
-      return "Live match schedule";
-    case "bundled":
-    case "bundled+polymarket":
-      return "Sample matches";
-    case "fixtures-stubs":
-      return "Demo matches";
-    default:
-      return "Match list";
   }
 }
 
@@ -141,7 +73,30 @@ export function friendlyDataGap(raw: string): string {
   if (raw.includes("LLM unavailable")) {
     return "Using team strength and past results only.";
   }
+  if (raw.includes("News buzz")) {
+    return raw.replace(/^News buzz:\s*/i, "Headlines: ");
+  }
+  if (raw.includes("No recent news")) {
+    return "No recent news headlines for this match.";
+  }
   return raw.replace(/\s*—\s*/g, ". ").replace(/-/g, " ");
+}
+
+export function sentimentToneLabel(tone: SentimentTone): string {
+  switch (tone) {
+    case "positive":
+      return "Mostly positive";
+    case "negative":
+      return "Mostly negative";
+    case "mixed":
+      return "Mixed";
+    default:
+      return "Not much signal";
+  }
+}
+
+export function sentimentSourceLabel(_source: SentimentSourceId): string {
+  return "News";
 }
 
 export function friendlyLlmSkip(skipReason?: string): string | null {

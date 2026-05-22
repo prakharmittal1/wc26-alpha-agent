@@ -48,6 +48,7 @@ function baseResult(overrides: Partial<AnalyzeResult> = {}): AnalyzeResult {
     summary: "",
     elo_built_at: "2026-01-01",
     llm: null,
+    sentiment: null,
     verdict: {
       alignment: "aligned",
       headline: "",

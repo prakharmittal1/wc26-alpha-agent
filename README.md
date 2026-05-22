@@ -1,99 +1,185 @@
-# World Cup 2026 Match Picks
+<p align="center">
+  <strong>World Cup 2026 Match Picks</strong><br />
+  <sub>Compare our win estimates to Polymarket — before the market catches up.</sub>
+</p>
 
-Compare **our win estimate** to **Polymarket odds** for FIFA World Cup 2026 matches. Built with Next.js — no paid data APIs required for a demo.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#screenshot">Screenshot</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#api">API</a>
+</p>
+
+---
+
+## Screenshot
+
+<p align="center">
+  <img src="docs/screenshot.png" alt="World Cup 2026 Match Picks dashboard — match grid and Polymarket-style odds tiles" width="920" />
+</p>
+
+<p align="center">
+  <em>Tap any match for a breakdown: our estimate vs market, venue context, news headlines, and optional AI notes.</em>
+</p>
+
+---
 
 ## Quick start
 
-Works with **no API keys** (bundled demo matches + seed team ratings).
+Works with **no API keys** — bundled demo matches and seed ratings.
 
 ```bash
+git clone <your-repo-url>
+cd wc26-alpha-agent
 npm install
 npm run dev
-# http://localhost:3000
 ```
 
-Tap a match to see our estimate, market odds, match conditions (venue, altitude, travel), and whether they disagree.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Optional setup
+Optional features use a **local** `.env.local` file (never committed). Create it yourself when you need live data, AI, or news headlines — see [Configuration](#configuration).
 
-Copy `.env.local.example` → `.env.local`.
+---
 
-| Feature | Env vars | Notes |
-|--------|----------|--------|
-| Official schedule | — | [FIFA.com scores & fixtures](https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures) (reference; not scraped) |
-| Match list + odds in app | *(none)* | [Polymarket](https://polymarket.com/sports/fifa-world-cup/games) Gamma API (home / draw / away) |
-| Live schedules (fallback) | `FOOTBALL_DATA_ORG_TOKEN` | Used only if Polymarket returns no games |
-| AI commentary | `GOOGLE_GENERATIVE_AI_API_KEY` or `LLM_PROVIDER=ollama` | Gemini Flash-Lite or local Ollama |
-| Full history | `data/results.csv` + `npm run data:build` | Kaggle international results CSV (gitignored) |
+## How it works
 
-### Team ratings & match history (Kaggle)
+Each match analysis runs through:
 
-1. Download [International Football Results from 1872 to 2017](https://www.kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017)
-2. Save as `data/results.csv`
-3. Run:
+| Step | What it does |
+|------|----------------|
+| **Ratings** | Elo + head-to-head baseline |
+| **History** | Keyword search over past international results |
+| **Venue** | Host city, altitude, heat, travel (WC26 schedule + venue profiles) |
+| **Market** | Polymarket home / draw / away prices |
+| **News** | Headlines from GNews / NewsAPI *(optional)* |
+| **AI analyst** | Reads everything above and sets **Our estimate** *(optional)* |
+
+Without AI, **Our estimate** blends ratings with history when enough past meetings exist. News headlines inform the UI and AI but do not change the headline number today.
+
+---
+
+## Configuration
+
+All secrets stay in `.env.local` on your machine. The repo does not ship an env template file.
+
+### Always free (no keys)
+
+| Data | Source |
+|------|--------|
+| Match list & odds | [Polymarket](https://polymarket.com/sports/fifa-world-cup/games) Gamma API |
+| Schedule fallback | `FOOTBALL_DATA_ORG_TOKEN` — [football-data.org](https://www.football-data.org/client/register) |
+
+### History & venues
 
 ```bash
+# 1. Download Kaggle CSV → data/results.csv (gitignored)
+# 2. Build ratings + RAG chunks
 npm run data:build -- --file data/results.csv
+
+# Refresh official host cities
+npm run wc26:venues
 ```
 
-Writes `data/processed/elo-ratings.json`, `h2h-index.json`, and `playbook-chunks.json`.
+### AI analyst (pick one)
 
-### AI analyst
+**Gemini**
 
-**Gemini** (cloud):
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_GENERATIVE_AI_API_KEY` | API key from [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `GEMINI_ANALYST_MODEL` | Optional model override |
+
+**Ollama (local)**
+
+| Variable | Purpose |
+|----------|---------|
+| `LLM_PROVIDER` | Set to `ollama` |
+| `OLLAMA_MODEL` | e.g. `llama3.2` |
+| `OLLAMA_BASE_URL` | Default `http://127.0.0.1:11434/api` |
+
+Disable per request: `"include_llm": false` on `POST /api/analyze`.
+
+### News headlines
+
+| Variable | Purpose |
+|----------|---------|
+| `GNEWS_API_KEY` | [gnews.io](https://gnews.io/) |
+| `NEWS_API_KEY` | Optional fallback — [newsapi.org](https://newsapi.org/) |
+| `SENTIMENT_CACHE_TTL_MS` | Cache TTL in ms (default 6 hours) |
+
+Pre-warm cache:
 
 ```bash
-GOOGLE_GENERATIVE_AI_API_KEY=your_key
-# optional: GEMINI_ANALYST_MODEL=gemini-2.5-flash-lite
+npm run sentiment:ingest
 ```
 
-**Ollama** (local):
+Disable per request: `"include_sentiment": false`.
 
-```bash
-LLM_PROVIDER=ollama
-OLLAMA_MODEL=qwen2:7b   # or llama3.2, etc.
-```
-
-Skip AI on a request: `"include_llm": false` on `POST /api/analyze`.
-
-### Polymarket odds
-
-No key needed. The match list and **home / draw / away** prices come from Polymarket’s Gamma API (`series_id=11433`, same games as [FIFA World Cup on Polymarket](https://polymarket.com/sports/fifa-world-cup/games)). Our “home win” comparison still uses the home column for edge vs our estimate.
+---
 
 ## API
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/matches` | GET | Match list + optional Polymarket prices (cached 5m) |
+| `/api/matches` | GET | Match list + Polymarket prices (~5m cache) |
 | `/api/analyze` | POST | Full breakdown for one fixture |
+
+**`POST /api/analyze`** — JSON body:
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `home`, `away` | yes | Canonical names (`lib/teams.ts`) |
+| `kickoff_iso` | yes | ISO datetime |
+| `p_market`, `market_draw`, `market_away_win` | no | Client-side odds |
+| `polymarket_event_slug` | no | Polymarket event |
+| `venue` | no | Stadium / city hint |
+| `include_llm` | no | Default on when AI configured |
+| `include_sentiment` | no | Default on when news API keys configured |
+
+---
 
 ## Scripts
 
 ```bash
-npm run data:build -- --file data/results.csv   # rebuild ratings + history
+npm run dev
+npm run build
+npm run data:build -- --file data/results.csv
+npm run wc26:venues
+npm run sentiment:ingest
 npm test
 npm run typecheck
 ```
 
+---
+
 ## Project layout
 
 ```
-app/                      Dashboard UI
-lib/alpha-engine.ts       Analysis pipeline
-lib/live-fixtures.ts      Schedules + Polymarket enrichment
-lib/elo.ts                Team strength ratings
-lib/rag.ts                Past-match keyword search
-lib/match-context.ts      Venue, altitude, travel (static WC26 host cities)
-lib/llm-analyst.ts        Optional AI estimate (uses match context)
-data/processed/           Built ratings & history (committed)
-data/bundled-fixtures.json Demo schedule when no live API token
+app/                    Dashboard, match grid, breakdown panel
+app/api/                matches + analyze routes
+lib/alpha-engine.ts     Analysis pipeline
+lib/sentiment/          News headline fetch + aggregation
+lib/llm-analyst.ts      Optional AI layer
+lib/match-context.ts    Venue & environment
+data/processed/         Built ratings, history, sentiment cache
+docs/screenshot.png     README preview image
 ```
+
+---
 
 ## Verify real data
 
-| What you see | Demo | Real |
-|--------------|------|------|
-| Schedule source | Sample / demo | Live match schedule |
-| “From ratings” vs full estimate | Same | History + AI when enabled |
-| Market gauge | No odds yet | Market odds |
-| `elo-ratings.json` → `source` | `seed-ratings` | `csv:data/results.csv` |
+| UI | Demo | Fully wired |
+|----|------|-------------|
+| Match grid | Sample fixtures | Polymarket live list |
+| Our estimate | Ratings only | History blend or AI |
+| News headlines | Hidden | GNews and/or NewsAPI keys |
+| Polymarket odds | Missing on tile | Home / draw / away |
+| `elo-ratings.json` | `seed-ratings` | `csv:…` after `data:build` |
+
+---
+
+<p align="center">
+  <sub>Built with Next.js · Not financial advice · Polymarket is a third-party market</sub>
+</p>

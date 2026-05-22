@@ -21,6 +21,10 @@ import { blendEloWithRag } from "@/lib/rag-form";
 import { resolveMatchContext } from "@/lib/match-context";
 import { buildMismatchVerdict } from "@/lib/mismatch-verdict";
 import type { ThreeWayPrices } from "@/lib/polymarket-gamma";
+import {
+  gatherMatchSentiment,
+  isSentimentConfigured,
+} from "@/lib/sentiment/gather";
 
 function buildMarketBlock(
   slug: string | null,
@@ -95,6 +99,8 @@ function formatSummary(
 export type AnalyzeMatchOptions = {
   /** Default true when an LLM provider is configured. */
   includeLlm?: boolean;
+  /** Default true when GNews or NewsAPI keys are set. */
+  includeSentiment?: boolean;
 };
 
 export async function analyzeMatch(
@@ -102,6 +108,8 @@ export async function analyzeMatch(
   options: AnalyzeMatchOptions = {},
 ): Promise<AnalyzeResult> {
   const includeLlm = options.includeLlm !== false && isLlmAnalystConfigured();
+  const includeSentiment =
+    options.includeSentiment !== false && isSentimentConfigured();
 
   const ratings = loadEloRatings();
   const data_gaps: string[] = [];
@@ -130,6 +138,26 @@ export async function analyzeMatch(
   });
   if (!isRagAvailable()) {
     data_gaps.push("No RAG chunks — run `npm run data:build -- --file data/results.csv`");
+  }
+
+  let sentiment = null;
+  if (includeSentiment) {
+    try {
+      sentiment = await gatherMatchSentiment(input.home, input.away, input.kickoff_iso);
+      if (sentiment && sentiment.post_count === 0) {
+        const errors = sentiment.sources
+          .filter((s) => s.status === "error")
+          .map((s) => s.detail)
+          .filter(Boolean);
+        if (errors.length > 0) {
+          data_gaps.push(`News buzz: ${errors[0]}`);
+        } else {
+          data_gaps.push("No recent news headlines for this match");
+        }
+      }
+    } catch {
+      data_gaps.push("News headline lookup failed");
+    }
   }
 
   let p_market: number | null =
@@ -218,6 +246,7 @@ export async function analyzeMatch(
       data_gaps,
       match_context,
       rag,
+      sentiment,
       elo_built_at: ratings.built_at,
     };
 
@@ -266,6 +295,7 @@ export async function analyzeMatch(
     data_gaps,
     match_context,
     rag,
+    sentiment,
     elo_built_at: ratings.built_at,
   };
 
@@ -282,23 +312,3 @@ export async function analyzeMatch(
   };
 }
 
-export function analyzeMatchSync(
-  home: import("@/lib/teams").Wc2026Team,
-  away: import("@/lib/teams").Wc2026Team,
-  p_market: number,
-  p_expected?: number,
-): Pick<AnalyzeResult, "p_model" | "p_expected" | "edge" | "signal" | "ev_per_unit"> {
-  const ratings = loadEloRatings();
-  const h2h_adj = h2hAdjustment(home, away);
-  const base = homeWinProbability(home, away, { ratings });
-  const p_model = clampProbability(base + h2h_adj);
-  const pExp = p_expected ?? p_model;
-  const { edge, signal, ev_per_unit } = computeMarketEdge(pExp, p_market);
-  return {
-    p_model: Number(p_model.toFixed(4)),
-    p_expected: Number(pExp.toFixed(4)),
-    edge: edge!,
-    signal,
-    ev_per_unit,
-  };
-}

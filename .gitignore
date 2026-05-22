@@ -34,7 +34,6 @@ yarn-error.log*
 # Secrets & local env (never commit real keys)
 .env
 .env.*
-!.env*.example
 
 # Local AI / editor notes (omit from GitHub; remove these lines if you want them public)
 CLAUDE.md
@@ -59,6 +58,7 @@ AGENTS.md
 !/data/bundled-fixtures.json
 !/data/processed/
 !/data/processed/**
+/data/processed/sentiment-cache/
 
 # Python (scripts / one-off tooling)
 .venv/

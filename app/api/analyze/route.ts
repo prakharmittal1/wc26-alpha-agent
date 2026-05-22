@@ -5,7 +5,7 @@ import { analyzeMatch } from "@/lib/alpha-engine";
 import { canonicalizeTeam } from "@/lib/teams";
 
 export const runtime = "nodejs";
-export const maxDuration = 45;
+export const maxDuration = 60;
 
 const BodySchema = z.object({
   home: z.string().min(1),
@@ -21,9 +21,10 @@ const BodySchema = z.object({
   city: z.string().optional().nullable(),
   is_world_cup: z.boolean().optional(),
   include_llm: z.boolean().optional(),
+  include_sentiment: z.boolean().optional(),
 });
 
-/** POST /api/analyze — Elo + RAG + LLM p_expected vs Polymarket */
+/** POST /api/analyze — Elo + RAG + sentiment + LLM vs Polymarket */
 export async function POST(req: Request) {
   let json: unknown;
   try {
@@ -72,7 +73,10 @@ export async function POST(req: Request) {
         city: parsed.data.city ?? undefined,
         is_world_cup: parsed.data.is_world_cup,
       },
-      { includeLlm: parsed.data.include_llm },
+      {
+        includeLlm: parsed.data.include_llm,
+        includeSentiment: parsed.data.include_sentiment,
+      },
     );
     return NextResponse.json(result);
   } catch (err) {

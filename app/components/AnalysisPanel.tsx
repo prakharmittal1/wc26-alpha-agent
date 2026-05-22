@@ -6,6 +6,7 @@ import { formatPastMeeting } from "@/lib/format-past-meeting";
 import { formatMatchVenueDisplay } from "@/lib/match-context";
 import { flagFor } from "@/lib/flags";
 import { formatKickoff } from "@/lib/fixtures";
+import { SentimentBuzz } from "@/app/components/SentimentBuzz";
 import { SoccerLoadingLine } from "@/app/components/SoccerLoadingLine";
 import { polymarketMatchUrl } from "@/lib/external-links";
 import {
@@ -112,6 +113,10 @@ export function AnalysisPanel({
         <Stat label="Market odds" value={formatChance(p_market)} tone="market" />
         <Stat label="Difference" value={formatGap(edge)} tone="gap" />
       </div>
+
+      {result.sentiment && result.sentiment.post_count > 0 && (
+        <SentimentBuzz sentiment={result.sentiment} home={team} away={opponent} />
+      )}
 
       {(result.market.draw != null || result.market.away_win != null) && (
         <section className="rounded-xl border border-zinc-100 bg-white p-3 shadow-sm">

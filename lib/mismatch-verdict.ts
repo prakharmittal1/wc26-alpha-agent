@@ -46,6 +46,10 @@ function buildFactorsUsed(result: Omit<AnalyzeResult, "verdict">): string[] {
     factors.push("Ratings blended with history");
   }
 
+  if (result.sentiment && result.sentiment.post_count > 0) {
+    factors.push(`News (${result.sentiment.post_count} headlines)`);
+  }
+
   return factors;
 }
 

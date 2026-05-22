@@ -196,7 +196,7 @@ async function finishBootstrap(
     detail:
       detail ??
       (!hasPolymarket
-        ? "No Polymarket prices matched — gauges show neutral placeholders."
+        ? "No Polymarket prices matched — odds placeholders on tiles."
         : undefined),
   };
 }
